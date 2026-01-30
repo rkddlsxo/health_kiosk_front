@@ -1,131 +1,143 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-
-// --- [가짜 메뉴 데이터] (나중에 백엔드 API /api/menus 에서 가져올 부분) ---
-const MOCK_MENU = [
-  { id: 1, name: "닭가슴살 샐러드", price: 8500, category: "salad", tags: ["diet", "muscle"], img: "🥗" },
-  { id: 2, name: "현미밥 정식", price: 9000, category: "rice", tags: ["diabetes"], img: "🍚" },
-  { id: 3, name: "제로 콜라", price: 2000, category: "drink", tags: ["sugar_free"], img: "🥤" },
-  { id: 4, name: "매운 제육볶음", price: 9500, category: "rice", tags: ["spicy"], img: "🍖" },
-  { id: 5, name: "오렌지 주스", price: 3500, category: "drink", tags: ["sugar"], img: "🍊" },
-  { id: 6, name: "연어 아보카도", price: 11000, category: "salad", tags: ["diet", "omega3"], img: "🐟" },
-];
+import axios from 'axios';
 
 function Menu() {
   const location = useLocation();
   const navigate = useNavigate();
-
+  
   // 로그인한 유저 정보 (없으면 Guest)
   const user = location.state?.user || { name: "손님", health: {} };
 
+  const [menus, setMenus] = useState([]);       // 전체 메뉴 리스트
   const [activeTab, setActiveTab] = useState("all");
   const [cart, setCart] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // --- [AI 추천 로직 시뮬레이션] ---
-  // 실제로는 백엔드 LLM이 분석해서 보내준 데이터를 씁니다.
-  // 여기서는 간단하게 "이름에 '손님'이 아니면 건강식을 추천"하게 만듭니다.
+  // 1. 백엔드에서 메뉴 데이터 가져오기
   useEffect(() => {
-    if (user.name !== "손님") {
-      // 예: 유저 건강 정보에 따라 추천 태그 설정 (임의 로직)
-      const recItems = MOCK_MENU.filter(item => 
-        item.tags.includes("diabetes") || item.tags.includes("diet") || item.tags.includes("sugar_free")
-      );
-      setRecommendations(recItems.map(i => i.id));
-    }
-  }, [user]);
+    const fetchMenus = async () => {
+      try {
+        const res = await axios.get("http://localhost:8000/api/menus");
+        setMenus(res.data);
+        setLoading(false);
+      } catch (err) {
+        console.error("메뉴 로딩 실패:", err);
+        alert("메뉴 정보를 불러오지 못했습니다.");
+      }
+    };
+    fetchMenus();
+  }, []);
 
   // 장바구니 담기
-  const addToCart = (item) => {
-    setCart([...cart, item]);
-  };
-
-  // 장바구니 비우기
+  const addToCart = (item) => setCart([...cart, item]);
   const clearCart = () => setCart([]);
-
-  // 주문 완료 (다시 대기 화면으로)
+  
+  // 주문 완료
   const handleOrder = () => {
-    alert(`${cart.length}개 메뉴 주문이 완료되었습니다!\n맛있게 드세요 😋`);
-    navigate('/kiosk'); // 첫 화면(얼굴인식)으로 복귀
+    alert(`${cart.length}개 메뉴 주문이 완료되었습니다!`);
+    navigate('/kiosk'); 
   };
 
-  // 총 금액 계산
-  const totalPrice = cart.reduce((sum, item) => sum + item.price, 0);
+  // 카테고리별 필터링
+  const filteredMenus = activeTab === "all" 
+    ? menus 
+    : menus.filter(m => m.category === activeTab);
 
-  // 카테고리 필터링
-  const filteredMenu = activeTab === "all" 
-    ? MOCK_MENU 
-    : MOCK_MENU.filter(item => item.category === activeTab);
+  // 카테고리 탭 목록 (DB에 있는 것만 추출하거나 고정)
+  const categories = ["all", "coffee", "beverage", "tea", "ade", "smoothie", "juice"];
+
+  // 이미지 없을 때 보여줄 이모지 (임시)
+  const getEmoji = (cat) => {
+    if (cat === 'coffee') return '☕️';
+    if (cat === 'tea') return '🍵';
+    if (cat === 'juice') return '🧃';
+    if (cat === 'smoothie') return '🍧';
+    return '🥤';
+  };
+
+  if (loading) return <div style={{textAlign:'center', marginTop:'50px'}}>메뉴판 세팅 중... ⏳</div>;
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f9fa' }}>
       
-      {/* 1. 상단 헤더 & AI 추천 메시지 */}
-      <div style={{ padding: '20px', background: '#007BFF', color: 'white' }}>
-        <h1 style={{ fontSize: '1.5rem', margin: 0 }}>안녕하세요, {user.name}님! 👋</h1>
-        <p style={{ marginTop: '10px', fontSize: '1.1rem', background: 'rgba(255,255,255,0.2)', padding: '10px', borderRadius: '10px' }}>
-          🤖 <b>AI 분석 결과:</b> 고객님의 건강 데이터(당뇨/혈압)를 기반으로<br/>
-          <span style={{ color: '#FFD700', fontWeight: 'bold' }}>저염식, 저당 메뉴</span>를 추천해 드려요!
-        </p>
+      {/* 1. 상단 헤더 */}
+      <div style={{ padding: '20px', background: '#2c3e50', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: '1.4rem', margin: 0 }}>Health Kiosk 🥤</h1>
+          <p style={{ margin: '5px 0 0 0', opacity: 0.8 }}>안녕하세요, {user.name}님!</p>
+        </div>
+        <div style={{ textAlign: 'right', fontSize: '0.9rem' }}>
+           건강 데이터 기반<br/>
+           <span style={{ color: '#00d2d3', fontWeight: 'bold' }}>맞춤 추천 중</span>
+        </div>
       </div>
 
-      {/* 2. 카테고리 탭 */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #ddd', background: 'white' }}>
-        {['all', 'salad', 'rice', 'drink'].map(tab => (
+      {/* 2. 카테고리 탭 (가로 스크롤) */}
+      <div style={{ display: 'flex', overflowX: 'auto', background: 'white', borderBottom: '1px solid #ddd', padding: '10px' }}>
+        {categories.map(cat => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={cat}
+            onClick={() => setActiveTab(cat)}
             style={{
-              flex: 1, padding: '15px', border: 'none', background: activeTab === tab ? '#007BFF' : 'transparent',
-              color: activeTab === tab ? 'white' : '#555', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer'
+              flex: '0 0 auto', padding: '10px 20px', margin: '0 5px', borderRadius: '20px', border: 'none',
+              background: activeTab === cat ? '#2c3e50' : '#ecf0f1',
+              color: activeTab === cat ? 'white' : '#555', fontWeight: 'bold', cursor: 'pointer'
             }}
           >
-            {tab.toUpperCase()}
+            {cat.toUpperCase()}
           </button>
         ))}
       </div>
 
-      {/* 3. 메뉴 리스트 (스크롤 영역) */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', alignContent: 'start' }}>
-        {filteredMenu.map(item => {
-          const isRecommended = recommendations.includes(item.id);
-          return (
-            <div key={item.id} onClick={() => addToCart(item)} style={{
-              background: 'white', borderRadius: '15px', padding: '15px', textAlign: 'center',
-              border: isRecommended ? '3px solid #FFD700' : '1px solid #eee', // 추천 메뉴는 금색 테두리
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)', cursor: 'pointer', position: 'relative'
-            }}>
-              {isRecommended && (
-                <div style={{
-                  position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)',
-                  background: '#FFD700', color: '#000', padding: '5px 10px', borderRadius: '20px',
-                  fontWeight: 'bold', fontSize: '0.8rem', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}>
-                  ✨ AI 강력 추천
-                </div>
-              )}
-              <div style={{ fontSize: '3rem', marginBottom: '10px' }}>{item.img}</div>
-              <h3 style={{ fontSize: '1.2rem', margin: '5px 0' }}>{item.name}</h3>
-              <p style={{ color: '#007BFF', fontWeight: 'bold' }}>{item.price.toLocaleString()}원</p>
+      {/* 3. 메뉴 그리드 */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '15px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', alignContent: 'start' }}>
+        {filteredMenus.map(item => (
+          <div key={item.menu_id} onClick={() => addToCart(item)} style={{
+            background: 'white', borderRadius: '15px', padding: '15px', position: 'relative',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.05)', border: '1px solid #eee', cursor: 'pointer'
+          }}>
+            {/* 알레르기 뱃지 */}
+            {item.allergens && (
+              <span style={{ position: 'absolute', top: '10px', right: '10px', background: '#ff7675', color: 'white', fontSize: '0.7rem', padding: '3px 6px', borderRadius: '5px' }}>
+                ⚠️ {item.allergens}
+              </span>
+            )}
+            
+            <div style={{ fontSize: '3rem', textAlign: 'center', marginBottom: '10px' }}>
+              {getEmoji(item.category)}
             </div>
-          );
-        })}
+            
+            <h3 style={{ fontSize: '1.1rem', margin: '5px 0', color: '#333' }}>{item.name}</h3>
+            <p style={{ fontWeight: 'bold', color: '#0984e3', margin: '5px 0' }}>{item.price.toLocaleString()}원</p>
+            
+            {/* ★ 헬스케어 정보 표시 (여기가 핵심) */}
+            <div style={{ marginTop: '10px', fontSize: '0.8rem', color: '#636e72', background: '#f1f2f6', padding: '8px', borderRadius: '8px' }}>
+              <div>🔥 {item.calories} kcal</div>
+              <div style={{ color: item.sugar > 30 ? '#d63031' : '#636e72' }}>
+                🍬 당류 {item.sugar}g {item.sugar > 30 && '⚠️'}
+              </div>
+              <div>🧂 나트륨 {item.sodium}mg</div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* 4. 하단 장바구니 바 */}
+      {/* 4. 하단 장바구니 */}
       <div style={{ padding: '20px', background: 'white', borderTop: '1px solid #ddd', boxShadow: '0 -5px 15px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-          <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>총 주문금액</span>
-          <span style={{ fontSize: '1.5rem', color: '#007BFF', fontWeight: 'bold' }}>{totalPrice.toLocaleString()}원</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.2rem' }}>
+          <span>총 주문금액</span>
+          <span style={{ color: '#0984e3' }}>
+            {cart.reduce((sum, item) => sum + item.price, 0).toLocaleString()}원
+          </span>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={clearCart} style={{ flex: 1, padding: '15px', borderRadius: '10px', border: '1px solid #ccc', background: 'white', fontSize: '1.1rem' }}>취소</button>
-          <button onClick={handleOrder} style={{ flex: 3, padding: '15px', borderRadius: '10px', border: 'none', background: '#007BFF', color: 'white', fontSize: '1.2rem', fontWeight: 'bold' }}>
+          <button onClick={clearCart} style={{ flex: 1, padding: '15px', borderRadius: '10px', border: '1px solid #ccc', background: 'white' }}>취소</button>
+          <button onClick={handleOrder} style={{ flex: 2, padding: '15px', borderRadius: '10px', border: 'none', background: '#0984e3', color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
             {cart.length}개 결제하기
           </button>
         </div>
       </div>
-
     </div>
   );
 }
