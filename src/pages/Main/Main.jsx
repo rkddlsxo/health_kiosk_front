@@ -1,130 +1,90 @@
+// 파일 위치: src/pages/Main/Main.jsx
+
 import { useLocation, useNavigate } from 'react-router-dom';
+import HealthAdvisor from '../../components/HealthAdvisor'; 
+// import TotalSolution from ... (이제 여기서 직접 임포트 안 해도 됨, 라우터에서 처리)
 
 function Main() {
   const location = useLocation();
   const navigate = useNavigate();
   
   const userName = location.state?.name || "사용자";
+  const accountId = location.state?.account_id;
 
-  // 결제 수단 버튼 클릭 시 (시늉만 함)
+  // ★ 상세 페이지로 이동 함수
+  const goToTotalSolution = () => {
+    // accountId가 없을 경우 예외처리 (안전장치)
+    if (!accountId) {
+      alert("로그인 정보가 없습니다. 다시 로그인해주세요.");
+      navigate('/');
+      return;
+    }
+
+    // 이동하면서 account_id와 name을 짐(state)으로 싸서 보냄
+    navigate('/solution', { 
+      state: { 
+        account_id: accountId, 
+        name: userName 
+      } 
+    });
+  };
+
   const handlePaymentClick = () => {
-    alert("💳 결제 수단 관리 기능은 준비 중입니다.\n(등록된 카드로 자동 결제됩니다.)");
+    alert("💳 결제 수단 관리 기능은 준비 중입니다.");
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#f4f6f9', // 배경색: 아주 연한 회색 (눈이 편안함)
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      padding: '20px'
-    }}>
-      
-      {/* 메인 카드 컨테이너 */}
-      <div style={{ 
-        maxWidth: '420px', // 모바일~태블릿 사이즈에 최적화
-        width: '100%',
-        background: '#ffffff',
-        borderRadius: '24px',
-        boxShadow: '0 15px 35px rgba(0,0,0,0.08)', // 부드럽고 깊은 그림자
-        padding: '40px 30px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '25px' // 요소 사이 간격 일괄 적용
-      }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f4f6f9', padding: '20px' }}>
+      <div style={{ maxWidth: '420px', width: '100%', background: '#ffffff', borderRadius: '24px', boxShadow: '0 15px 35px rgba(0,0,0,0.08)', padding: '40px 30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {/* 1. 환영 헤더 */}
-        <div>
-          <h1 style={{ fontSize: '1.8rem', color: '#1a1a1a', marginBottom: '10px', fontWeight: '800' }}>
-            환영합니다, <span style={{ color: '#007BFF' }}>{userName}</span>님! 🎉
+        {/* 헤더 */}
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: '1.8rem', color: '#1a1a1a', marginBottom: '5px' }}>
+            <span style={{ color: '#007BFF' }}>{userName}</span>님의 건강 리포트
           </h1>
-          <p style={{ color: '#666', fontSize: '0.95rem', lineHeight: '1.5' }}>
-            모든 데이터가 안전하게 등록되었습니다.<br/>
-            이제 맞춤형 키오스크를 경험해보세요.
-          </p>
+          <p style={{ color: '#888', fontSize: '0.9rem' }}>오늘의 건강 상태를 분석했습니다.</p>
         </div>
 
-        {/* 2. 상태 배지 (데이터 등록 확인용) */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          gap: '8px',
-          flexWrap: 'wrap' 
-        }}>
-          <StatusBadge icon="👤" text="얼굴 등록됨" />
-          <StatusBadge icon="🏥" text="건강 데이터 분석됨" />
-        </div>
+        {/* 1. 간단 음료 코칭 (Main에서 바로 보임) */}
+        {/* 주의: src/components/HealthAdvisor.jsx 파일이 있어야 에러가 안 납니다! */}
+        <HealthAdvisor userId={accountId} />
 
-        {/* 구분선 */}
-        <div style={{ height: '1px', background: '#eee', width: '100%' }}></div>
+        {/* 2. ★ 종합 건강 솔루션 버튼 (클릭 시 이동!) */}
+        <button 
+          onClick={goToTotalSolution}
+          style={{
+            background: 'linear-gradient(90deg, #6a11cb 0%, #2575fc 100%)', // 강조되는 그라데이션
+            color: 'white',
+            padding: '18px',
+            borderRadius: '16px',
+            border: 'none',
+            fontSize: '1.05rem',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            boxShadow: '0 4px 15px rgba(37, 117, 252, 0.3)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          🩺 AI 종합 건강 정밀 분석 보러가기
+        </button>
 
-        {/* 3. 액션 버튼 영역 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          
-          
-          {/* 서브: 결제 수단 관리 (요청하신 부분) */}
-          <button 
-            onClick={handlePaymentClick} 
-            style={{ 
-              width: '100%',
-              padding: '16px', 
-              fontSize: '1rem', 
-              background: '#fff', 
-              color: '#444', 
-              border: '1px solid #ddd', // 회색 테두리로 구분
-              borderRadius: '16px', 
-              cursor: 'pointer',
-              fontWeight: '600',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            💳 결제 수단 등록 / 관리
-          </button>
-        </div>
+        <div style={{ height: '1px', background: '#eee', width: '100%', margin: '10px 0' }}></div>
 
-        {/* 4. 하단 로그아웃 */}
-        <div>
-          <button 
-            onClick={() => navigate('/')} 
-            style={{ 
-              background: 'transparent', 
-              border: 'none', 
-              color: '#999', 
-              textDecoration: 'underline', 
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            로그아웃
-          </button>
+        {/* 결제 관리 등 기타 버튼 */}
+        <button onClick={handlePaymentClick} style={{ width: '100%', padding: '16px', background: '#f8f9fa', color: '#444', border: '1px solid #ddd', borderRadius: '16px', cursor: 'pointer', fontWeight: '600' }}>
+            💳 결제 수단 / 내 정보 관리
+        </button>
+
+        <div style={{ textAlign: 'center' }}>
+          <button onClick={() => navigate('/')} style={{ background: 'transparent', border: 'none', color: '#999', textDecoration: 'underline', cursor: 'pointer' }}>로그아웃</button>
         </div>
 
       </div>
     </div>
   );
 }
-
-// 작은 컴포넌트: 상태 배지 (디자인 통일성을 위해 분리)
-const StatusBadge = ({ icon, text }) => (
-  <div style={{ 
-    padding: '8px 14px', 
-    background: '#F0F7FF', 
-    borderRadius: '20px', 
-    color: '#007BFF', 
-    fontWeight: '600',
-    fontSize: '0.85rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px'
-  }}>
-    <span>{icon}</span> {text}
-  </div>
-);
 
 export default Main;

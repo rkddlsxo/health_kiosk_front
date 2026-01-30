@@ -242,7 +242,13 @@ function Survey() {
           }
         }
         alert('등록 완료! 이제 키오스크를 이용해보세요.');
-        navigate('/main', { state: { name: userName } });
+             // account_id를 함께 묶어서 보냅니다.
+        navigate('/main', { 
+          state: { 
+            name: userName, 
+            account_id: accountId // ★ 이 부분이 빠져있었습니다!
+         } 
+        });
       } catch (err) {
         console.error(err);
         alert('전송 실패.');

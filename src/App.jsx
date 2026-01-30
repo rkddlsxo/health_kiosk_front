@@ -5,6 +5,8 @@ import Register from './pages/User/Register';
 import Survey from './pages/User/Survey';
 import FaceLogin from './pages/Kiosk/FaceLogin';
 import Menu from './pages/Kiosk/Menu'; // ★ 여기 추가
+import TotalSolutionPage from './pages/TotalSolutionPage'; // ★ import 추가
+
 
 function App() {
   return (
@@ -18,6 +20,7 @@ function App() {
         {/* 키오스크 관련 */}
         <Route path="/kiosk" element={<FaceLogin />} />
         <Route path="/menu" element={<Menu />} /> {/* ★ 여기 추가 */}
+        <Route path="/solution" element={<TotalSolutionPage />} />
       </Routes>
     </Router>
   );
