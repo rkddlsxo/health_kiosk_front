@@ -19,7 +19,7 @@ function Register() {
     e.preventDefault();
     try {
       // 백엔드 서버(8000번 포트)로 데이터 전송
-      await axios.post('http://localhost:8000/register', formData);
+      await axios.post('http://localhost:8000/user/register', formData);
       alert('회원가입 성공! DB를 확인해보세요.');
     } catch (error) {
       alert('가입 실패: ' + (error.response?.data?.detail || '오류 발생'));
