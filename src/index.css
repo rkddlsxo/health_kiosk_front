@@ -1,0 +1,141 @@
+:root {
+  /* 폰트: 깔끔한 고딕 계열 우선 적용 */
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* 테마 색상 변수 (키오스크 통일감) */
+  --bg-color: #2d3436;
+  /* 전체 배경 (다크 그레이) */
+  --text-color: #f5f6fa;
+  /* 기본 글자색 (화이트) */
+  --primary-color: #0984e3;
+  /* 포인트 컬러 (블루) */
+
+  /* 다크 모드 기본 설정 */
+  color-scheme: dark;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 모든 요소의 박스 크기 계산 통일 (레이아웃 깨짐 방지) */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* 키오스크는 보통 스크롤바를 숨김 (필요시 내부 스크롤) */
+}
+
+body {
+  display: flex;
+  place-items: center;
+  justify-content: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+}
+
+/* ★ 리액트 루트 컨테이너 꽉 채우기 (중앙 정렬 핵심) */
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 링크 스타일 */
+a {
+  font-weight: 500;
+  color: #74b9ff;
+  text-decoration: inherit;
+  transition: color 0.3s;
+}
+
+a:hover {
+  color: #0984e3;
+}
+
+/* 기본 버튼 스타일 리셋 (우리가 만든 버튼 컴포넌트가 우선되겠지만 기본값도 예쁘게) */
+button {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 0.8em 1.5em;
+  font-size: 1em;
+  font-weight: 600;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  color: white;
+  cursor: pointer;
+  transition: all 0.25s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+button:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* 제목 스타일 */
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+/* 스크롤바 커스텀 (내부 스크롤이 생길 때 예쁘게 보이도록) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #636e72;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b2bec3;
+}
+
+/* 라이트 모드 지원 (필요 시 자동 전환) */
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #2d3436;
+    background-color: #ffffff;
+  }
+
+  a:hover {
+    color: #0984e3;
+  }
+
+  button {
+    background-color: #f9f9f9;
+    color: #2d3436;
+    border: 1px solid #dfe6e9;
+  }
+}
