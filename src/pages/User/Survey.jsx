@@ -48,28 +48,30 @@ function Survey() {
     vision: '정상', hearing: '정상', diseases: [] 
   });
   const [allergyList, setAllergyList] = useState([]);
-  const [docPreview, setDocPreview] = useState(null);
   
-  // --- [얼굴 촬영 관련 상태] ---
+  // 파일 저장용 State (★ 추가됨)
+  const [healthFile, setHealthFile] = useState(null);   // Step 1 사진
+  const [allergyFile, setAllergyFile] = useState(null); // Step 2 사진
+  const [docPreview, setDocPreview] = useState(null);   // 화면 표시용
+
+  // 얼굴 촬영 관련
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [capturedFace, setCapturedFace] = useState(null);
-  const [countdown, setCountdown] = useState(null); // 카운트다운 숫자 (3, 2, 1)
+  const [countdown, setCountdown] = useState(null);
 
   // 카메라 시작
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (err) {
       console.error("카메라 에러:", err);
       alert("카메라 권한을 확인해주세요.");
     }
   };
 
-  // 실제 사진 찍는 함수 (내부용)
+  // 사진 찍기 함수
   const snap = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -77,33 +79,27 @@ function Survey() {
       const context = canvas.getContext('2d');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      // 좌우 반전해서 그리기
       context.translate(canvas.width, 0);
       context.scale(-1, 1);
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      canvas.toBlob((blob) => {
-        setCapturedFace(blob);
-      }, 'image/jpeg');
+      canvas.toBlob((blob) => setCapturedFace(blob), 'image/jpeg');
     }
   };
 
-  // 사용자가 버튼 누르면 -> 3초 카운트다운 후 촬영
+  // 카운트다운 촬영
   const startCountdownAndSnap = () => {
     let count = 3;
-    setCountdown(count); // 3 표시
-
+    setCountdown(count);
     const timer = setInterval(() => {
       count--;
-      if (count > 0) {
-        setCountdown(count); // 2, 1 표시
-      } else {
+      if (count > 0) setCountdown(count);
+      else {
         clearInterval(timer);
-        setCountdown(null); // 숫자 숨김
-        snap(); // 찰칵!
+        setCountdown(null);
+        snap();
       }
-    }, 1000); // 1초마다 실행
+    }, 1000);
   };
 
   const retakePhoto = () => {
@@ -123,7 +119,12 @@ function Survey() {
   // --- 데이터 핸들러 ---
   const handleDocChange = (e) => {
     const file = e.target.files[0];
-    if (file) setDocPreview(URL.createObjectURL(file));
+    if (file) {
+      setDocPreview(URL.createObjectURL(file));
+      // 현재 단계에 따라 파일 저장 (★ 추가됨)
+      if (step === 1) setHealthFile(file);
+      if (step === 2) setAllergyFile(file);
+    }
   };
 
   const toggleDisease = (name) => {
@@ -137,55 +138,78 @@ function Survey() {
     setAllergyList(prev => prev.includes(name) ? prev.filter(a => a !== name) : [...prev, name]);
   };
 
-  // --- 다음 단계 및 전송 ---
+  // --- 다음 단계 및 최종 전송 (★ 여기가 핵심 로직 수정됨) ---
   const handleNext = async () => {
+    // [Step 1] 건강검진 -> Step 2
     if (step === 1) {
-      if (mode === 'upload' && !docPreview) return alert("결과지를 촬영해주세요!");
+      if (mode === 'upload' && !healthFile) return alert("결과지를 촬영해주세요!");
       setStep(2);
       setMode('manual');
-      setDocPreview(null);
+      setDocPreview(null); // 미리보기 초기화
       window.scrollTo(0, 0);
     } 
+    // [Step 2] 알레르기 -> Step 3
     else if (step === 2) {
-      if (mode === 'upload' && !docPreview) return alert("검사표를 촬영해주세요!");
+      if (mode === 'upload' && !allergyFile) return alert("검사표를 촬영해주세요!");
       setStep(3);
       window.scrollTo(0, 0);
     } 
+    // [Step 3] 최종 전송
     else {
       if (!capturedFace) return alert("얼굴을 등록해주세요!");
 
       try {
+        // 1. 얼굴 사진 전송 (무조건 전송)
         const faceFormData = new FormData();
         faceFormData.append("file", capturedFace, "face.jpg");
-        await axios.post(`http://localhost:8000/user/${accountId}/face-register`, faceFormData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await axios.post(`http://localhost:8000/api/users/${accountId}/face`, faceFormData);
 
-        const healthPayload = {
-          vision_l: healthSimple.vision === '정상' ? 1.0 : 0.5,
-          vision_r: healthSimple.vision === '정상' ? 1.0 : 0.5,
-          hearing_l: healthSimple.hearing,
-          hearing_r: healthSimple.hearing,
-          has_hypertension: healthSimple.diseases.includes('고혈압'),
-          has_diabetes: healthSimple.diseases.includes('당뇨'),
-          has_hyperlipidemia: healthSimple.diseases.includes('고지혈증'),
-          has_asthma: healthSimple.diseases.includes('천식'),
-        };
-        await axios.put(`http://localhost:8000/user/${accountId}/health-info`, healthPayload);
-
-        // 알레르기 리스트 전송 (API가 리스트를 받도록 수정되었다고 가정, 아니면 for문 사용)
-        for (const item of allergyList) {
-          await axios.post(`http://localhost:8000/user/${accountId}/allergies`, { 
-            allergen_name: item, severity: '중간' 
+        // 2. 건강 정보 전송 (분기 처리 ★)
+        if (healthFile) {
+          // 사진이 있으면 -> /scan API 호출
+          const healthFormData = new FormData();
+          healthFormData.append("file", healthFile);
+          await axios.post(`http://localhost:8000/api/users/${accountId}/health/scan`, healthFormData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
           });
+        } else {
+          // 사진이 없으면(수동) -> /health API 호출
+          const healthPayload = {
+            vision_l: healthSimple.vision === '정상' ? 1.0 : 0.5,
+            vision_r: healthSimple.vision === '정상' ? 1.0 : 0.5,
+            hearing_l: healthSimple.hearing,
+            hearing_r: healthSimple.hearing,
+            has_hypertension: healthSimple.diseases.includes('고혈압'),
+            has_diabetes: healthSimple.diseases.includes('당뇨'),
+            has_hyperlipidemia: healthSimple.diseases.includes('고지혈증'),
+            has_asthma: healthSimple.diseases.includes('천식'),
+          };
+          await axios.post(`http://localhost:8000/api/users/${accountId}/health`, healthPayload);
         }
 
-        alert('등록 완료! 얼굴 인식으로 로그인해보세요.');
+        // 3. 알레르기 정보 전송 (분기 처리 ★)
+        if (allergyFile) {
+          // 사진이 있으면 -> /scan API 호출
+          const allergyFormData = new FormData();
+          allergyFormData.append("file", allergyFile);
+          await axios.post(`http://localhost:8000/api/users/${accountId}/allergies/scan`, allergyFormData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } else {
+          // 사진이 없으면(수동) -> /allergies API 호출 (리스트 반복 전송)
+          for (const item of allergyList) {
+            await axios.post(`http://localhost:8000/api/users/${accountId}/allergies`, { 
+              allergen_name: item, severity: '중간' 
+            });
+          }
+        }
+
+        alert('등록 완료! 이제 키오스크를 이용해보세요.');
         navigate('/main', { state: { name: userName } });
 
       } catch (err) {
         console.error(err);
-        alert('전송 실패. 백엔드를 확인해주세요.');
+        alert('전송 실패. 백엔드 연결을 확인해주세요.');
       }
     }
   };
@@ -216,19 +240,80 @@ function Survey() {
         </div>
       )}
 
-      {/* Step 1 & 2 UI 생략 (기존과 동일하므로 공간 절약 위해... 실제로는 아까 코드 그대로 쓰시면 됩니다) */}
-      {/* (여기에 Step 1, 2 코드들이 그대로 있어야 합니다. 아까 드린 코드의 Step 1, 2 부분 유지!) */}
+      {/* === [공통] 사진 업로드 UI === */}
+      {step < 3 && mode === 'upload' && (
+        <div style={{ textAlign: 'center', padding: '20px', background: '#fff', borderRadius: '15px', border: '1px solid #eee' }}>
+          <p style={{ color: '#666', marginBottom: '20px' }}>
+             {step === 1 ? '건강검진 결과지를 찍어주세요.' : '알레르기 검사 결과지를 찍어주세요.'}
+          </p>
+          <label style={{ cursor: 'pointer' }}>
+            <div style={{ 
+              width: '100%', height: '250px', border: '3px dashed #ddd', borderRadius: '15px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              background: '#fafafa', overflow: 'hidden'
+            }}>
+              {docPreview ? (
+                <img src={docPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                <>
+                  <span style={{ fontSize: '3rem' }}>📸</span>
+                  <span style={{ marginTop: '10px', color: '#aaa', fontWeight: 'bold' }}>촬영하기 / 파일 선택</span>
+                </>
+              )}
+            </div>
+            <input type="file" accept="image/*" capture="environment" onChange={handleDocChange} style={{ display: 'none' }} />
+          </label>
+        </div>
+      )}
+
+      {/* === [Step 1] 건강검진 간편 입력 === */}
       {step === 1 && mode === 'manual' && (
-         /* ... 아까 드린 Step 1 코드 ... */
-         <div>
-             {/* 임시로 간단히 표시 */}
-             <p>건강 상태 체크</p>
-             <div style={{display:'flex', gap:'5px', marginBottom:'10px'}}>
-               <OptionButton label="시력 정상" selected={healthSimple.vision==='정상'} onClick={()=>setHealthSimple({...healthSimple, vision:'정상'})}/>
-               <OptionButton label="시력 나쁨" selected={healthSimple.vision==='비정상'} onClick={()=>setHealthSimple({...healthSimple, vision:'비정상'})}/>
-             </div>
-             {/* ... */}
-         </div>
+        <div>
+          <div style={{ marginBottom: '25px' }}>
+            <p style={{ fontWeight: 'bold', marginBottom: '10px' }}>👀 시력 / 👂 청력 상태</p>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              <OptionButton label="시력 정상" selected={healthSimple.vision === '정상'} onClick={() => setHealthSimple({...healthSimple, vision: '정상'})} />
+              <OptionButton label="시력 나쁨" selected={healthSimple.vision === '비정상'} onClick={() => setHealthSimple({...healthSimple, vision: '비정상'})} />
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <OptionButton label="청력 정상" selected={healthSimple.hearing === '정상'} onClick={() => setHealthSimple({...healthSimple, hearing: '정상'})} />
+              <OptionButton label="청력 나쁨" selected={healthSimple.hearing === '비정상'} onClick={() => setHealthSimple({...healthSimple, hearing: '비정상'})} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '25px' }}>
+            <p style={{ fontWeight: 'bold', marginBottom: '10px' }}>💊 보유 질환 (중복 선택 가능)</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+              {['고혈압', '당뇨', '고지혈증', '천식'].map(d => (
+                <OptionButton key={d} label={d} selected={healthSimple.diseases.includes(d)} onClick={() => toggleDisease(d)} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* === [Step 2] 알레르기 간편 선택 === */}
+      {step === 2 && mode === 'manual' && (
+        <div>
+          <p style={{ fontWeight: 'bold', marginBottom: '10px' }}>🚫 해당하는 알레르기 선택</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {["땅콩", "우유", "계란", "새우/게", "복숭아", "밀가루", "항생제", "진통제", "고양이털"].map(item => (
+              <button
+                key={item}
+                onClick={() => toggleAllergy(item)}
+                style={{
+                  padding: '12px 18px', borderRadius: '25px',
+                  border: allergyList.includes(item) ? '2px solid #FF6B6B' : '1px solid #eee',
+                  background: allergyList.includes(item) ? '#FFF0F0' : '#fff',
+                  color: allergyList.includes(item) ? '#FF6B6B' : '#555',
+                  fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
+                {item} {allergyList.includes(item) && '✔'}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
       
       {/* === [Step 3] 얼굴 가이드 + 타이머 UI === */}
@@ -245,73 +330,35 @@ function Survey() {
           }}>
             {!capturedFace ? (
               <>
-                {/* 비디오 화면 */}
-                <video 
-                  ref={videoRef} autoPlay playsInline muted 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} 
-                />
-                
-                {/* ★ 얼굴 가이드라인 (Overlay) ★ */}
+                <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
                 <div style={{
                   position: 'absolute', top: '0', left: '0', width: '100%', height: '100%',
-                  background: 'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.7) 70%)', // 주변 어둡게
-                  pointerEvents: 'none', // 클릭 통과
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  background: 'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.7) 70%)',
+                  pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
-                  {/* 타원형 테두리 */}
-                  <div style={{
-                    width: '60%', height: '50%', 
-                    border: '3px dashed rgba(255, 255, 255, 0.8)', 
-                    borderRadius: '50%'
-                  }}></div>
+                  <div style={{ width: '60%', height: '50%', border: '3px dashed rgba(255, 255, 255, 0.8)', borderRadius: '50%' }}></div>
                 </div>
-
-                {/* ★ 카운트다운 숫자 표시 ★ */}
                 {countdown && (
                   <div style={{
                     position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                    fontSize: '10rem', fontWeight: 'bold', color: 'white', textShadow: '0 0 20px rgba(0,0,0,0.5)',
-                    zIndex: 10
-                  }}>
-                    {countdown}
-                  </div>
+                    fontSize: '10rem', fontWeight: 'bold', color: 'white', textShadow: '0 0 20px rgba(0,0,0,0.5)', zIndex: 10
+                  }}>{countdown}</div>
                 )}
               </>
             ) : (
-              // 찍은 후 미리보기
-              <img 
-                src={URL.createObjectURL(capturedFace)} alt="Face" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} 
-              />
+              <img src={URL.createObjectURL(capturedFace)} alt="Face" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
             )}
             <canvas ref={canvasRef} style={{ display: 'none' }} />
           </div>
 
           <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center' }}>
             {!capturedFace ? (
-              // 카운트다운 시작 버튼
-              <button 
-                onClick={startCountdownAndSnap}
-                disabled={countdown !== null} // 카운트다운 중엔 클릭 방지
-                style={{ 
-                  width: '70px', height: '70px', borderRadius: '50%', 
-                  background: countdown ? '#ccc' : '#ff4d4d', 
-                  border: '5px solid #fff', boxShadow: '0 5px 15px rgba(0,0,0,0.2)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}
-              >
-                {/* 카메라 아이콘 */}
+              <button onClick={startCountdownAndSnap} disabled={countdown !== null} style={{ width: '70px', height: '70px', borderRadius: '50%', background: countdown ? '#ccc' : '#ff4d4d', border: '5px solid #fff', boxShadow: '0 5px 15px rgba(0,0,0,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: '2rem' }}>📷</span>
               </button>
             ) : (
-              <button 
-                onClick={retakePhoto}
-                style={{ 
-                  padding: '12px 25px', borderRadius: '25px', background: '#666', 
-                  color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem'
-                }}
-              >
-                🔄 마음에 안 들어요 (다시 찍기)
+              <button onClick={retakePhoto} style={{ padding: '12px 25px', borderRadius: '25px', background: '#666', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+                🔄 다시 찍기
               </button>
             )}
           </div>
@@ -319,14 +366,7 @@ function Survey() {
       )}
 
       {/* 하단 완료 버튼 */}
-      <button 
-        onClick={handleNext} 
-        style={{ 
-          width: '100%', padding: '18px', marginTop: '30px', 
-          background: '#007BFF', color: 'white', border: 'none', 
-          borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer' 
-        }}
-      >
+      <button onClick={handleNext} style={{ width: '100%', padding: '18px', marginTop: '30px', background: '#007BFF', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer' }}>
         {step < 3 ? '다음 단계 👉' : '등록 완료 및 시작 🎉'}
       </button>
 
