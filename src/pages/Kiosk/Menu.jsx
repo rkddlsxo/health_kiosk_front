@@ -18,7 +18,7 @@ function Menu() {
   useEffect(() => {
     const fetchMenus = async () => {
       try {
-        const res = await axios.get("http://localhost:8000/api/menus");
+        const res = await axios.get("http://localhost:8000/api/menu/");
         setMenus(res.data);
         setLoading(false);
       } catch (err) {
@@ -39,13 +39,13 @@ function Menu() {
     navigate('/kiosk'); 
   };
 
-  // 카테고리별 필터링
+  // 카테고리별 필터링 (대소문자 무시)
   const filteredMenus = activeTab === "all" 
     ? menus 
-    : menus.filter(m => m.category === activeTab);
+    : menus.filter(m => m.category.toUpperCase() === activeTab.toUpperCase());
 
-  // 카테고리 탭 목록 (DB에 있는 것만 추출하거나 고정)
-  const categories = ["all", "coffee", "beverage", "tea", "ade", "smoothie", "juice"];
+  // 카테고리 탭 목록 (DB 데이터에 맞춤)
+  const categories = ["all", "coffee", "beverage", "dessert", "food"];
 
   // 이미지 없을 때 보여줄 이모지 (임시)
   const getEmoji = (cat) => {
